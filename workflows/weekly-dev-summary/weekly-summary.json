@@ -1,0 +1,192 @@
+{
+  "name": "Weekly Claude Dev Activity Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtHour": 17,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "name": "Weekly Schedule (Friday 5pm)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "owner",
+              "value": "claude-builders-bounty"
+            },
+            {
+              "name": "repo",
+              "value": "claude-builders-bounty"
+            },
+            {
+              "name": "language",
+              "value": "EN"
+            },
+            {
+              "name": "webhookUrl",
+              "value": "https://discord.com/api/webhooks/YOUR_WEBHOOK"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Set Config Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        420,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{$node[\"Set Config Variables\"].json[\"owner\"]}}/{{$node[\"Set Config Variables\"].json[\"repo\"]}}/commits?since={{$today.minus({days: 7}).toISO()}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "name": "Fetch Weekly Commits",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        640,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{$node[\"Set Config Variables\"].json[\"owner\"]}}/{{$node[\"Set Config Variables\"].json[\"repo\"]}}/issues?state=closed&since={{$today.minus({days: 7}).toISO()}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "name": "Fetch Closed Issues & PRs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        640,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "model": "claude-sonnet-4-20250514",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are an engineering digest writer. Create an executive, narrative weekly dev summary in language '{{$node[\"Set Config Variables\"].json[\"language\"]}}' covering achievements, bug fixes, and key releases."
+            },
+            {
+              "role": "user",
+              "content": "=Here is this week's raw GitHub activity for {{$node[\"Set Config Variables\"].json[\"owner\"]}}/{{$node[\"Set Config Variables\"].json[\"repo\"]}}:\\n\\nCommits: {{$node[\"Fetch Weekly Commits\"].json}}\\n\\nClosed Issues: {{$node[\"Fetch Closed Issues & PRs\"].json}}\\n\\nGenerate a structured markdown report."
+            }
+          ]
+        }
+      },
+      "name": "Claude API Narrative Summary",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$node[\"Set Config Variables\"].json[\"webhookUrl\"]}}",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={\n  \"content\": \"\ud83d\udce2 **Weekly Dev Digest Ready!**\\n\\n\" + {{$node[\"Claude API Narrative Summary\"].json[\"text\"]}}\n}",
+        "options": {}
+      },
+      "name": "Deliver via Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1140,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Weekly Schedule (Friday 5pm)": {
+      "main": [
+        [
+          {
+            "node": "Set Config Variables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config Variables": {
+      "main": [
+        [
+          {
+            "node": "Fetch Weekly Commits",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Closed Issues & PRs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Weekly Commits": {
+      "main": [
+        [
+          {
+            "node": "Claude API Narrative Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Closed Issues & PRs": {
+      "main": [
+        [
+          {
+            "node": "Claude API Narrative Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude API Narrative Summary": {
+      "main": [
+        [
+          {
+            "node": "Deliver via Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
