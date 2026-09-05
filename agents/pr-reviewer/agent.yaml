@@ -1,0 +1,13 @@
+name: claude-pr-reviewer
+version: 1.0.0
+description: Automated AI PR Review Agent that inspects diffs and outputs structured markdown feedback with risk ratings.
+entrypoint: review_pr.py
+arguments:
+  - name: pr
+    type: string
+    required: true
+    description: GitHub Pull Request URL
+  - name: post
+    type: boolean
+    required: false
+    description: Post structured comment to GitHub issue
